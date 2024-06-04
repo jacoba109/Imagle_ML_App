@@ -1,16 +1,9 @@
 import tensorflow as tf
 import matplotlib.pyplot as plt
 import numpy as np
-import random
 import os
-from pathlib import Path
-from keras import applications
-from keras import layers
-from keras import losses
-from keras import ops
-from keras import optimizers
-from keras import metrics
-from keras import Model
+import keras
+from keras import layers, ops, optimizers, metrics, Model
 from keras.api.applications import resnet
 
 target_shape = (200, 200)
@@ -90,6 +83,7 @@ for layer in base_cnn.layers:
         trainable = True
     layer.trainable = trainable
 
+@keras.saving.register_keras_serializable()
 class DistanceLayer(layers.Layer):
 
     def __init__(self, **kwargs):
@@ -99,6 +93,10 @@ class DistanceLayer(layers.Layer):
         ap_distance = ops.sum(tf.square(anchor - positive), -1)
         an_distance = ops.sum(tf.square(anchor - negative), -1)
         return (ap_distance, an_distance)
+    
+    def get_config(self):
+        config = super(DistanceLayer, self).get_config()
+        return config
     
 
 anchor_input = layers.Input(name="anchor", shape=target_shape + (3,))
@@ -111,6 +109,7 @@ distances = DistanceLayer()(embedding(resnet.preprocess_input(anchor_input)),
 
 siamese_network = Model(inputs = [anchor_input, positive_input, negative_input], outputs=distances)
 
+@keras.saving.register_keras_serializable()
 class SiameseModel(Model):
 
     def __init__(self, siamese_network, margin=0.5):
@@ -151,6 +150,12 @@ class SiameseModel(Model):
     def metrics(self):
         return [self.loss_tracker]
     
+    def get_config(self):
+        config = super(SiameseModel, self).get_config()
+        config.update({"siamese_network": self.siamese_network, "margin": self.margin, "loss_tracker": self.loss_tracker})
+        return config
+
+    
 siamese_model = SiameseModel(siamese_network)
 siamese_model.compile(optimizer=optimizers.Adam(0.0001))
 siamese_model.fit(train_dataset, epochs=10, validation_data=val_dataset)
@@ -170,4 +175,4 @@ print("Positive similarity:", positive_similarity.numpy())
 negative_similarity = cosine_similarity(anchor_embedding, negative_embedding)
 print("Negative similarity:", negative_similarity.numpy())
 
-siamese_model.save("./comparison_model.keras")
+embedding.save("./comparison_model.keras")
