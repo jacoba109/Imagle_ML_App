@@ -2,7 +2,6 @@ import tensorflow as tf
 import numpy as np
 import keras
 import os
-from PIL import Image
 from keras import metrics
 from keras.api.applications import resnet
 
@@ -24,8 +23,8 @@ def preprocess_triplets(anchor, positive, negative):
 
 comparison_model = keras.models.load_model("comparison_model.keras")
 
-anchor_images = sorted([str("left/" + f) for f in os.listdir("left")])
-positive_images = sorted([str("right/" + f) for f in os.listdir("right")])
+anchor_images = sorted([str("/training_files/left/" + f) for f in os.listdir("training_files/left")])
+positive_images = sorted([str("/training_files/right/" + f) for f in os.listdir("training_files/right")])
 image_count = len(anchor_images)
 
 anchor_dataset = tf.data.Dataset.from_tensor_slices(anchor_images)
@@ -71,9 +70,9 @@ for _ in range(5):
 
     print(f"Positive: {pos_val}, Negative: {neg_val}")
 """
-test_anchor = ["./test_images/white.jpg"]
-test_positive = ["./test_images/pretzel.jpg"]
-test_negative = ["./test_images/black.jpg"]
+test_anchor = ["./training_files/test_images/white.jpg"]
+test_positive = ["./training_files/test_images/pretzel.jpg"]
+test_negative = ["./training_files/test_images/black.jpg"]
 
 test_a_ds = tf.data.Dataset.from_tensor_slices(test_anchor).map(preprocess_image).batch(1)
 test_p_ds = tf.data.Dataset.from_tensor_slices(test_positive).map(preprocess_image).batch(1)
