@@ -24,8 +24,8 @@ p {
 }
 
 .dropzone {
-  width: 200px;
-  height: 200px;
+  width: 175px;
+  height: 175px;
   border: 2px dashed #cccccc;
   border-radius: 10px;
   display: flex;

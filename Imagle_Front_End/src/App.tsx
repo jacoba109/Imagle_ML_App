@@ -9,10 +9,39 @@ const App: React.FC = () => {
   const [score, setScore] = useState<number | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
+  const [corrects, setCorrects] = useState<number>(0);
 
   const onDrop = (acceptedFiles: File[]) => {
     setSelectedFile(acceptedFiles[0] || null);
     setPreview(URL.createObjectURL(acceptedFiles[0]) || null);
+  };
+
+  const handleWin = async () => {
+
+    setLoading(true);
+    setError(null);
+
+    try {
+      const response = await axios.get('http://127.0.0.1:8000/win', {
+        responseType: 'blob'
+      });
+      const url = URL.createObjectURL(response.data)
+      setPreview(url)
+    } catch (err) {
+      setError('Error retrieving image');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleScore = (score: number) => {
+      if (score > 9.55) {
+        if (corrects + 1 > 3) {
+          handleWin();
+        } else {
+          setCorrects((prevCorrects) => prevCorrects + 1);
+        }
+      }
   };
 
   const handleSubmit = async (event: FormEvent) => {
@@ -34,8 +63,8 @@ const App: React.FC = () => {
           'Content-Type': 'multipart/form-data',
         },
       });
-      
       setScore(response.data.score);
+      handleScore(score!);
     } catch (err) {
       setError('Error uploading image');
     } finally {
@@ -57,11 +86,12 @@ const App: React.FC = () => {
             <p>Drag 'n' drop some files here, or click to select files</p>
           )}
           {preview && <img src={preview} alt="Preview" className="preview-image" />}
-          
+
         </div>
         <button type="submit" disabled={loading || !selectedFile}>
           {loading ? 'Uploading...' : 'Submit'}
         </button>
+        {<p style={{color: 'white'}}>Correct attempts: {corrects}</p>}
       </form>
       {error && <p style={{ color: 'red' }}>{error}</p>}
       {score !== null && !loading && <p>Score: {score}</p>}

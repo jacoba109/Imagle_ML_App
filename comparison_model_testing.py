@@ -23,8 +23,8 @@ def preprocess_triplets(anchor, positive, negative):
 
 comparison_model = keras.models.load_model("comparison_model.keras")
 
-anchor_images = sorted([str("/training_files/left/" + f) for f in os.listdir("training_files/left")])
-positive_images = sorted([str("/training_files/right/" + f) for f in os.listdir("training_files/right")])
+anchor_images = sorted([str("./training_files/left/" + f) for f in os.listdir("training_files/left")])
+positive_images = sorted([str("./training_files/right/" + f) for f in os.listdir("training_files/right")])
 image_count = len(anchor_images)
 
 anchor_dataset = tf.data.Dataset.from_tensor_slices(anchor_images)
@@ -53,7 +53,7 @@ train_dataset = train_dataset.prefetch(tf.data.AUTOTUNE)
 val_dataset = val_dataset.batch(32, drop_remainder=False)
 val_dataset = val_dataset.prefetch(tf.data.AUTOTUNE)
 
-"""
+
 for _ in range(5):
     sample = next(iter(val_dataset))
     anchor, positive, negative = sample
@@ -68,7 +68,8 @@ for _ in range(5):
     pos_val = positive_similarity.numpy() * 1000 % 10
     neg_val = negative_similarity.numpy() * 1000 % 10
 
-    print(f"Positive: {pos_val}, Negative: {neg_val}")
+    print(f"Raw: {positive_similarity}, {negative_similarity} | Positive: {pos_val}, Negative: {neg_val}")
+
 """
 test_anchor = ["./training_files/test_images/white.jpg"]
 test_positive = ["./training_files/test_images/pretzel.jpg"]
@@ -94,3 +95,4 @@ pos_val = positive_similarity.numpy()
 neg_val = negative_similarity.numpy()
 
 print(f"Positive: {pos_val}, Negative: {neg_val}")
+"""

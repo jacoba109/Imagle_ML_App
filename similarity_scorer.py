@@ -8,7 +8,7 @@ def compare(model, image):
 
     target_shape = (200, 200)
     anchor = ["./training_files/test_images/pretzel.jpg"]
-    
+
     def preprocess_anchor(filename):
         image_string = tf.io.read_file(filename)
         image = tf.image.decode_jpeg(image_string, channels=3)
@@ -16,7 +16,7 @@ def compare(model, image):
         image = tf.image.resize(image, target_shape)
         return image
     
-    def preprocess_image(image: Image.Image) -> np.ndarray:
+    def preprocess_image(image):
         image = image.resize((200, 200))
         image = np.array(image) / 255.0
         image = np.expand_dims(image, axis=0)
@@ -35,6 +35,8 @@ def compare(model, image):
 
     return similarity.numpy()
 
-
-
+def scale_score(score):
+    scaled = score * 100
+    chopped = scaled % 10
+    return chopped
 
