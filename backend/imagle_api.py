@@ -26,7 +26,7 @@ async def scoring_endpoint(file: UploadFile = File(...)):
     image = Image.open(io.BytesIO(image_data))
     raw_score = compare(comparison_model, image)
     score = scale_score(raw_score)
-    return {"score" : str(score)}
+    return {"score" : str(raw_score)}
 
 @app.get("/win")
 async def win_endpoint():

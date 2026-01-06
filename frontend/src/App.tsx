@@ -6,7 +6,7 @@ import './App.css';
 const App: React.FC = () => {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<string | null>(null)
-  const [score, setScore] = useState<number | null>(null);
+  const [score, setScore] = useState<number>(0);
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [corrects, setCorrects] = useState<number>(0);
@@ -36,10 +36,9 @@ const App: React.FC = () => {
 
   const handleScore = (score: number) => {
       if (score > 9.55) {
-        if (corrects + 1 > 3) {
+        setCorrects((prevCorrects) => prevCorrects + 1);
+        if (corrects + 1 == 3) {
           handleWin();
-        } else {
-          setCorrects((prevCorrects) => prevCorrects + 1);
         }
       }
   };
@@ -64,7 +63,7 @@ const App: React.FC = () => {
         },
       });
       setScore(response.data.score);
-      handleScore(score!);
+      handleScore(response.data.score);
     } catch (err) {
       setError('Error uploading image');
     } finally {
@@ -77,6 +76,7 @@ const App: React.FC = () => {
   return (
     <div className="App">
       <h1>Imagle</h1>
+      <p>Input your picture, and try to get three correct comparisons with the image of the day!</p>
       <form onSubmit={handleSubmit} className="form-container">
         <div {...getRootProps({ className: 'dropzone' })}>
           <input {...getInputProps()} />
