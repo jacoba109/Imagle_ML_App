@@ -18,7 +18,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-comparison_model = keras.models.load_model("comparison_model.keras")
+comparison_model = keras.models.load_model("./comparison_model.keras")
 
 @app.post("/predict")
 async def scoring_endpoint(file: UploadFile = File(...)):
@@ -30,7 +30,7 @@ async def scoring_endpoint(file: UploadFile = File(...)):
 
 @app.get("/win")
 async def win_endpoint():
-    daily_image = "./training_files/test_images/kyrie.jpg"
+    daily_image = "../training_files/test_images/kyrie.jpg"
     return FileResponse(daily_image) 
 
 

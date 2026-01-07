@@ -1,7 +1,7 @@
 import tensorflow as tf
 import numpy as np
 from keras import metrics
-from keras.api.applications import resnet
+from keras.applications import resnet
 from PIL import Image
 
 def compare(model, image):

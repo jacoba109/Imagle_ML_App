@@ -4,7 +4,7 @@ import numpy as np
 import os
 import keras
 from keras import layers, ops, optimizers, metrics, Model
-from keras.api.applications import resnet
+from keras.applications import resnet
 
 target_shape = (200, 200)
 
@@ -175,4 +175,4 @@ print("Positive similarity:", positive_similarity.numpy())
 negative_similarity = cosine_similarity(anchor_embedding, negative_embedding)
 print("Negative similarity:", negative_similarity.numpy())
 
-embedding.save("./comparison_model.keras2")
+embedding.save("./comparison_model.keras")

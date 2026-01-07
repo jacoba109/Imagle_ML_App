@@ -2,8 +2,7 @@ import tensorflow as tf
 import numpy as np
 import keras
 import os
-from keras import metrics
-from keras.api.applications import resnet
+from keras.applications import resnet
 
 target_shape = (200, 200)
 
@@ -14,85 +13,79 @@ def preprocess_image(filename):
     image = tf.image.resize(image, target_shape)
     return image
 
-def preprocess_triplets(anchor, positive, negative):
-    return (
-        preprocess_image(anchor), 
-        preprocess_image(positive), 
-        preprocess_image(negative)
-    )
+comparison_model = keras.models.load_model("./comparison_model.keras")
 
-comparison_model = keras.models.load_model("comparison_model.keras")
+# Build paired lists (left[i] matches right[i])
+left = sorted([f"../data/left/{f}" for f in os.listdir("../data/left")])
+right = sorted([f"../data/right/{f}" for f in os.listdir("../data/right")])
+n = min(len(left), len(right))
+left, right = left[:n], right[:n]
 
-anchor_images = sorted([str("./training_files/left/" + f) for f in os.listdir("training_files/left")])
-positive_images = sorted([str("./training_files/right/" + f) for f in os.listdir("training_files/right")])
-image_count = len(anchor_images)
+# Shuffle pairs together (keeps alignment)
+perm = np.random.RandomState(17).permutation(n)
+left = [left[i] for i in perm]
+right = [right[i] for i in perm]
 
-anchor_dataset = tf.data.Dataset.from_tensor_slices(anchor_images)
-positive_dataset = tf.data.Dataset.from_tensor_slices(positive_images)
+# Deterministic "wrong right" negatives
+neg_perm = np.random.RandomState(34).permutation(n)
+neg = [right[i] for i in neg_perm]
+for i in range(n):
+    if neg[i] == right[i]:
+        j = (i + 1) % n
+        neg[i], neg[j] = neg[j], neg[i]
 
-rng = np.random.RandomState(seed=17)
-rng.shuffle(anchor_images)
-rng.shuffle(positive_images)
+# Build dataset
+ds = tf.data.Dataset.from_tensor_slices((left, right, neg))
+ds = ds.map(lambda a,p,ne: (preprocess_image(a), preprocess_image(p), preprocess_image(ne)),
+            num_parallel_calls=tf.data.AUTOTUNE)
+ds = ds.batch(32).prefetch(tf.data.AUTOTUNE)
 
-negative_images = anchor_images + positive_images
-np.random.RandomState(seed=34).shuffle(negative_images)
+def embed(x):
+    return comparison_model(x)
 
-negative_dataset = tf.data.Dataset.from_tensor_slices(negative_images)
-negative_dataset = negative_dataset.shuffle(buffer_size=4096)
+def embed_resnet_preproc(x):
+    return comparison_model(resnet.preprocess_input(x * 255.0))
 
-dataset = tf.data.Dataset.zip((anchor_dataset, positive_dataset, negative_dataset))
-dataset = dataset.shuffle(buffer_size=1024)
-dataset = dataset.map(preprocess_triplets)
+cos = tf.keras.losses.CosineSimilarity(axis=1)
 
-train_dataset = dataset.take(round(image_count * 0.8))
-val_dataset = dataset.skip(round(image_count * 0.8))
+def cosine(a,b,eps=1e-8):
+    a = tf.math.l2_normalize(a, axis=1)
+    b = tf.math.l2_normalize(b, axis=1)
+    return tf.reduce_sum(a*b, axis=1)
 
-train_dataset = train_dataset.batch(32, drop_remainder=False)
-train_dataset = train_dataset.prefetch(tf.data.AUTOTUNE)
+def run_benchmark(embed_fn, label):
+    pos_sims = []
+    neg_sims = []
+    margins = []
+    norms = []
+    print("running first pipeline")
+    i = 0
+    for a,p,nimg in ds.take(50):
+        print(f"taking! {i}")
+        ea = embed_fn(a)
+        ep = embed_fn(p)
+        en = embed_fn(nimg)
 
-val_dataset = val_dataset.batch(32, drop_remainder=False)
-val_dataset = val_dataset.prefetch(tf.data.AUTOTUNE)
+        ps = cosine(ea, ep)
+        ns = cosine(ea, en)
 
+        pos_sims.append(ps.numpy())
+        neg_sims.append(ns.numpy())
+        margins.append((ps-ns).numpy())
+        norms.append(tf.norm(ea, axis=1).numpy())
+        i += 1
 
-for _ in range(5):
-    sample = next(iter(val_dataset))
-    anchor, positive, negative = sample
+    pos_sims = np.concatenate(pos_sims)
+    neg_sims = np.concatenate(neg_sims)
+    margins  = np.concatenate(margins)
+    norms    = np.concatenate(norms)
 
-    anchor_embedding = comparison_model(resnet.preprocess_input(anchor))
-    positive_embedding = comparison_model(resnet.preprocess_input(positive))
-    negative_embedding = comparison_model(resnet.preprocess_input(negative))
+    print(f"\n=== {label} ===")
+    print(f"pos cosine: mean={pos_sims.mean():.4f} std={pos_sims.std():.4f} p5={np.percentile(pos_sims,5):.4f} p95={np.percentile(pos_sims,95):.4f}")
+    print(f"neg cosine: mean={neg_sims.mean():.4f} std={neg_sims.std():.4f} p5={np.percentile(neg_sims,5):.4f} p95={np.percentile(neg_sims,95):.4f}")
+    print(f"margin (pos-neg): mean={margins.mean():.4f} std={margins.std():.4f} p5={np.percentile(margins,5):.4f} p95={np.percentile(margins,95):.4f}")
+    print(f"ranking acc (pos>neg): {(margins>0).mean():.3f}")
+    print(f"embed norm: mean={norms.mean():.4f} std={norms.std():.4f}")
 
-    cosine_similarity = metrics.CosineSimilarity()
-    positive_similarity = cosine_similarity(anchor_embedding, positive_embedding)
-    negative_similarity = cosine_similarity(anchor_embedding, negative_embedding)
-    pos_val = positive_similarity.numpy() * 1000 % 10
-    neg_val = negative_similarity.numpy() * 1000 % 10
-
-    print(f"Raw: {positive_similarity}, {negative_similarity} | Positive: {pos_val}, Negative: {neg_val}")
-
-"""
-test_anchor = ["./training_files/test_images/white.jpg"]
-test_positive = ["./training_files/test_images/pretzel.jpg"]
-test_negative = ["./training_files/test_images/black.jpg"]
-
-test_a_ds = tf.data.Dataset.from_tensor_slices(test_anchor).map(preprocess_image).batch(1)
-test_p_ds = tf.data.Dataset.from_tensor_slices(test_positive).map(preprocess_image).batch(1)
-test_n_ds = tf.data.Dataset.from_tensor_slices(test_negative).map(preprocess_image).batch(1)
-
-anchor = next(iter(test_a_ds))
-positive = next(iter(test_p_ds))
-negative = next(iter(test_n_ds))
-
-
-anchor_embedding = comparison_model(resnet.preprocess_input(anchor))
-positive_embedding = comparison_model(resnet.preprocess_input(positive))
-negative_embedding = comparison_model(resnet.preprocess_input(negative))
-
-cosine_similarity = metrics.CosineSimilarity()
-positive_similarity = cosine_similarity(anchor_embedding, positive_embedding)
-negative_similarity = cosine_similarity(anchor_embedding, negative_embedding)
-pos_val = positive_similarity.numpy()
-neg_val = negative_similarity.numpy()
-
-print(f"Positive: {pos_val}, Negative: {neg_val}")
-"""
+run_benchmark(embed_resnet_preproc, "Pipeline A: x*255 then resnet.preprocess_input")
+run_benchmark(embed, "Pipeline B: raw 0..1 resized (no resnet preprocess)")
