@@ -176,3 +176,62 @@ http://localhost:5173
 
 The frontend uses a Vite proxy to communicate with the backend, avoiding CORS issues during development.
 
+---
+
+### API Endpoints (Simplified)
+
+## GET /game/today
+
+Returns the daily puzzle:
+
+```json
+{
+  "game_id": "2026-01-07_0420",
+  "prompt": { "id": "0420", "url": "/images/left/0420.jpg" },
+  "candidates": [
+    { "id": "0173", "url": "/images/right/0173.jpg" },
+    { "id": "0420", "url": "/images/right/0420.jpg" },
+    ...
+  ]
+}
+```
+
+## POST game/guess
+
+Submit a guess:
+```json
+{
+  "guess_id": "0173"
+}
+```
+
+Response: 
+```json
+{
+  "correct": false,
+  "correct_id": "0420"
+}
+```
+
+---
+
+### Known Limitations / Future Work
+
+- 📊 Puzzle Quality Gating
+    Filter out daily puzzles where the model is ambiguous or overly confident
+
+- 🔥 Difficulty Calibration
+    Rank-based or margin-based difficulty scoring
+
+- 🧠 Model Improvements
+    Harder negative mining during training
+    Comparison against CLIP or other pretrained baselines
+
+- 💾 Persistent User State
+    Accounts, streaks, and history
+
+- 🎨 UI Polish
+    Animations, feedback bands (“cold / warm / hot”), mobile responsiveness
+
+---
+
